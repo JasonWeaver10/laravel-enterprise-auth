@@ -125,6 +125,39 @@ class SamlServiceProviderTest extends TestCase
         $this->assertDatabaseCount('users', 1);
     }
 
+    public function test_whitespace_around_an_asserted_value_does_not_orphan_the_match(): void
+    {
+        $user = User::factory()->create(['email' => 'padded@example.com', 'okta_id' => null]);
+
+        // What an indented assertion actually hands over once the XML text
+        // node is read.
+        $resolved = app(FederatedUserResolver::class)->resolve(new FederatedIdentity(
+            subject: "\n            padded@example.com\n        ",
+            email: "\n            padded@example.com\n        ",
+            name: '  Padded Person  ',
+            protocol: 'saml',
+        ));
+
+        $this->assertNotNull($resolved, 'A padded email failed to match an existing account.');
+        $this->assertSame($user->id, $resolved->id);
+        $this->assertSame('padded@example.com', $resolved->okta_id);
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_an_attribute_the_provider_sent_but_left_empty_counts_as_absent(): void
+    {
+        $identity = new FederatedIdentity(
+            subject: '00uSOMEONE',
+            email: '   ',
+            name: "\n",
+            protocol: 'saml',
+        );
+
+        $this->assertNull($identity->email);
+        $this->assertNull($identity->name);
+        $this->assertSame('00uSOMEONE', $identity->subject);
+    }
+
     public function test_the_resolver_refuses_a_stranger_regardless_of_protocol(): void
     {
         Log::shouldReceive('info')->once()->withArgs(

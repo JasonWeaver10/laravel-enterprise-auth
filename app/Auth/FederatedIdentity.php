@@ -12,14 +12,51 @@ namespace App\Auth;
  */
 final readonly class FederatedIdentity
 {
+    public string $subject;
+
+    public ?string $email;
+
+    public ?string $name;
+
+    /** @var array<string, mixed> */
+    public array $raw;
+
+    public string $protocol;
+
     /**
      * @param  array<string, mixed>  $raw
      */
     public function __construct(
-        public string $subject,
-        public ?string $email = null,
-        public ?string $name = null,
-        public array $raw = [],
-        public string $protocol = 'oidc',
-    ) {}
+        string $subject,
+        ?string $email = null,
+        ?string $name = null,
+        array $raw = [],
+        string $protocol = 'oidc',
+    ) {
+        // SAML attribute values are XML text nodes, so an identity provider
+        // that indents its assertion hands over values wrapped in whitespace.
+        // An email with a trailing newline matches no row, and the failure
+        // presents as "this account does not exist" rather than as a parsing
+        // problem, which is a genuinely annoying afternoon.
+        $this->subject = trim($subject);
+        $this->email = self::clean($email);
+        $this->name = self::clean($name);
+        $this->raw = $raw;
+        $this->protocol = $protocol;
+    }
+
+    /**
+     * Treats a value that is only whitespace as absent, since that is what it
+     * means: an attribute the identity provider sent but did not populate.
+     */
+    private static function clean(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
 }
