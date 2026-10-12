@@ -89,6 +89,41 @@ Doing it silently in the name of tidiness logs people out of everything.
 one, and a placeholder hash in that column reads as a credential to whoever
 audits the table in two years.
 
+### Two protocols will not agree on who someone is
+
+OIDC asserts the Okta user id as `sub`, for example
+`00u18mt70d0BaMXTh698`. A SAML app asserts whatever its application
+username is set to, and the default is the email address. Same person, same
+directory, two different identifiers.
+
+The obvious fix is to make the SAML app assert the user id instead. It is not
+available. Okta's Expression Language for Identity Engine exposes user profile
+attributes, group affiliations, device profile attributes, entitlements,
+session AMR and session id. The internal user id is not among them, so there
+is no expression that produces it.
+
+So this is a property of the integration rather than a misconfiguration, and
+the application has to contain it. `FederatedUserResolver` matches on the
+stored subject first, falls back to email once, and then refuses to overwrite a
+subject it already trusts with a different one, logging the conflict instead.
+Silently re-pointing an account to a new identifier is the failure worth
+avoiding, because nothing downstream would ever tell you it happened.
+
+### Okta changed its expression language, and both versions still work
+
+Legacy attribute statements use `user.email`. The current Expression Language
+for Identity Engine uses `user.profile.email`. Both are live in the product
+simultaneously, the legacy table is hidden behind a "Show legacy
+configuration" toggle, and claims moved from the app creation wizard to the
+Sign On tab.
+
+The practical consequence is that most instructions you find, including most
+of what an LLM will tell you from memory, are written against whichever
+version the author last used, and the wrong one fails with
+`Invalid property email in expression user.email`, which does not hint that a
+prefix is missing. Check which interface you are actually looking at before
+trusting any example.
+
 ### The identity provider is not authoritative about everything it asserts
 
 It is authoritative about *who* someone is. That is the whole point. It is not
@@ -124,7 +159,8 @@ created, who gets refused, and how a returning user is recognised.
 ## Roadmap
 
 - [x] OIDC authorization code sign-in, verified against a live Okta org
-- [ ] SAML 2.0, both SP-initiated and IdP-initiated
+- [x] SAML 2.0, SP-initiated, verified against a live Okta org
+- [ ] SAML IdP-initiated, from the Okta dashboard tile
 - [ ] SCIM 2.0 provisioning endpoints, including deactivation
 - [ ] Okta group to application role mapping
 

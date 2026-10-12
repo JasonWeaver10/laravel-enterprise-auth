@@ -19,9 +19,8 @@
     <div class="card">
         <h2 style="margin-top:0">What the identity provider asserted</h2>
         <p class="lede" style="margin-bottom:12px">
-            What the identity provider asserted. Held in the session rather than
-            written to the users table, because it is true as of this login and
-            nothing keeps it current afterwards.
+            Held in the session rather than written to the users table, because
+            it is true as of this login and nothing keeps it current afterwards.
         </p>
         <pre>{{ json_encode(session('okta_claims', []), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
     </div>
