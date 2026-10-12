@@ -3,7 +3,7 @@
 
 @section('body')
     <h1>Signed in</h1>
-    <p class="lede">Federated through Okta over OpenID Connect.</p>
+    <p class="lede">Federated through Okta over {{ session('okta_protocol', 'an unknown protocol') }}.</p>
 
     <div class="card">
         <h2 style="margin-top:0">Local account</h2>
@@ -17,7 +17,7 @@
     </div>
 
     <div class="card">
-        <h2 style="margin-top:0">Claims from this sign-in</h2>
+        <h2 style="margin-top:0">What the identity provider asserted</h2>
         <p class="lede" style="margin-bottom:12px">
             What the identity provider asserted. Held in the session rather than
             written to the users table, because it is true as of this login and

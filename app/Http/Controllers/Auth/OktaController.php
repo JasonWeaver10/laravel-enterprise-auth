@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\FederatedIdentity;
+use App\Auth\FederatedUserResolver;
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -17,9 +18,9 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
 /**
  * Signs users in against Okta over OpenID Connect.
  *
- * The callback keeps apart two questions that are easy to run together:
- * whether Okta can prove who this person is, and whether this person should
- * have an account here. A valid assertion only ever answers the first.
+ * What happens to a valid assertion is not decided here. That rule is shared
+ * with the SAML path and lives in FederatedUserResolver, because the protocol
+ * changes how an identity was verified, not who is allowed to be here.
  */
 class OktaController extends Controller
 {
@@ -33,7 +34,7 @@ class OktaController extends Controller
         return Socialite::driver('okta')->redirect();
     }
 
-    public function callback(): RedirectResponse
+    public function callback(Request $request, FederatedUserResolver $resolver): RedirectResponse
     {
         try {
             $oktaUser = Socialite::driver('okta')->user();
@@ -62,48 +63,30 @@ class OktaController extends Controller
             );
         }
 
-        // Match on the subject claim first, falling back to email. The email
-        // match is what links an account that already existed here, whether
-        // seeded locally or pushed in by SCIM, to the Okta identity now
-        // asserting it. After the first successful login, okta_id carries it.
-        $user = User::firstWhere('okta_id', $oktaUser->getId())
-            ?? User::firstWhere('email', $oktaUser->getEmail());
+        $user = $resolver->resolve(new FederatedIdentity(
+            subject: $oktaUser->getId(),
+            email: $oktaUser->getEmail(),
+            name: $oktaUser->getName() ?: $oktaUser->getNickname(),
+            raw: (array) $oktaUser->user,
+            protocol: 'oidc',
+        ));
 
         if (! $user) {
-            if (! config('services.okta.jit_provisioning')) {
-                // Worth logging rather than swallowing: a run of these is
-                // either a provisioning backlog or someone assigned to the
-                // Okta app who was never meant to reach this environment.
-                Log::info('Refused an unprovisioned Okta sign-in.', [
-                    'okta_id' => $oktaUser->getId(),
-                    'email' => $oktaUser->getEmail(),
-                ]);
-
-                return redirect()->route('login')->with(
-                    'status',
-                    'Okta verified who you are, but there is no account for you here yet. An administrator has to provision access first.'
-                );
-            }
-
-            $user = new User([
-                'name' => $oktaUser->getName() ?: $oktaUser->getNickname() ?: $oktaUser->getEmail(),
-                'email' => $oktaUser->getEmail(),
-            ]);
+            return redirect()->route('login')->with(
+                'status',
+                'Okta verified who you are, but there is no account for you here yet. An administrator has to provision access first.'
+            );
         }
 
-        $user->okta_id = $oktaUser->getId();
-        $user->last_sso_at = now();
-        $user->save();
-
         Auth::login($user, remember: true);
-        $request = request();
         $request->session()->regenerate();
 
         // Claims live in the session, not in columns on the users table. They
         // are true as of this login and no longer, and persisting them would
         // quietly promote a snapshot into a source of truth that nothing keeps
         // up to date.
-        $request->session()->put('okta_claims', $oktaUser->user);
+        $request->session()->put('okta_claims', (array) $oktaUser->user);
+        $request->session()->put('okta_protocol', 'OpenID Connect');
 
         return redirect()->intended(route('dashboard'));
     }

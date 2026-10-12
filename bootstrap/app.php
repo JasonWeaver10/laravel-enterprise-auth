@@ -12,7 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Okta posts the SAML assertion here from its own origin, so there is
+        // no session and no token to present. Excluding the route is correct
+        // rather than a shortcut: what protects this endpoint is the signature
+        // on the assertion, its intended recipient, its validity window and
+        // its one-time id, all of which are checked before anyone is signed in.
+        $middleware->validateCsrfTokens(except: [
+            'auth/saml/callback',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

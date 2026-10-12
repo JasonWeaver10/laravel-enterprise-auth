@@ -34,9 +34,12 @@ class OktaAuthenticationTest extends TestCase
             'client_secret' => 'test-client-secret',
             'redirect' => 'http://localhost:8000/auth/okta/callback',
             'base_url' => 'https://dev-00000000.okta.com',
-            'auth_server_id' => 'default',
-            'jit_provisioning' => false,
+            'auth_server_id' => '',
         ]);
+
+        // Policy now lives outside the per-provider config, since it governs
+        // SAML identically.
+        config()->set('federation.jit_provisioning', false);
     }
 
     /**
@@ -110,7 +113,7 @@ class OktaAuthenticationTest extends TestCase
 
     public function test_a_verified_stranger_is_created_when_jit_provisioning_is_on(): void
     {
-        config()->set('services.okta.jit_provisioning', true);
+        config()->set('federation.jit_provisioning', true);
         $this->fakeOktaUser('00uNEWCOMER', 'newcomer@example.com', 'New Comer');
 
         $this->get('/auth/okta/callback')->assertRedirect('/dashboard');
@@ -162,7 +165,7 @@ class OktaAuthenticationTest extends TestCase
 
     public function test_the_claims_from_the_sign_in_are_kept_in_the_session(): void
     {
-        config()->set('services.okta.jit_provisioning', true);
+        config()->set('federation.jit_provisioning', true);
         $this->fakeOktaUser('00uCLAIMS', 'claims@example.com');
 
         $this->get('/auth/okta/callback');

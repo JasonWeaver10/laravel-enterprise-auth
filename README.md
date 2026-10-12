@@ -96,10 +96,17 @@ automatically correct about the rest of the profile, and the rest of the profile
 is where most of the attributes live.
 
 A live sign-in against a fresh Okta org asserted
-`"zoneinfo": "America/Los_Angeles"` for a user in Ohio, because nothing had set
-it and that is the default. An application that rendered timestamps from
-`zoneinfo` would show every user the wrong time, and the bug would be hard to
-find, because the data is well formed and comes from an authoritative source.
+`"zoneinfo": "America/Los_Angeles"` for a user in Ohio. The profile had been
+populated at sign-up from apparent location, and that location was a VPN exit
+node. Nothing afterwards disagreed with it, so the identity provider went on
+asserting it as fact.
+
+That is the failure worth understanding. The attribute was not corrupted or
+missing. It was captured once, from a signal that was misleading at the moment
+of capture, and then became authoritative. An application rendering timestamps
+from `zoneinfo` would show every user the wrong time, and the bug would be
+genuinely hard to find, because the data is well formed and arrives from a
+system you are supposed to trust.
 
 Treat claims as input. Validate the ones you depend on.
 

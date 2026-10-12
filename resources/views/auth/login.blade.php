@@ -13,8 +13,30 @@
 
     @if ($configured)
         <div class="card">
-            <p>Sign in with the identity provider. You will be sent to Okta, authenticate there, and return here.</p>
+            <h2 style="margin-top:0">OpenID Connect</h2>
+            <p>You are redirected to Okta, authenticate there, and come back with an
+               authorization code this application exchanges for tokens over a back channel.</p>
             <a class="btn" href="{{ route('okta.redirect') }}">Sign in with Okta</a>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-top:0">SAML 2.0</h2>
+            @if (filled(config('services.saml2.metadata')))
+                <p>Okta hands your browser a signed assertion to carry here. This
+                   application verifies its signature, issuer, intended recipient,
+                   validity window, and that the assertion has not been seen before.</p>
+                <a class="btn" href="{{ route('saml.redirect') }}">Sign in with SAML</a>
+            @else
+                <p class="lede" style="margin-bottom:10px">
+                    Not configured. Set <code>SAML2_IDP_METADATA_URL</code> to the
+                    metadata URL from the Okta SAML app's Sign On tab.
+                </p>
+            @endif
+            <p class="lede" style="margin-top:12px;margin-bottom:0;font-size:0.88rem">
+                This application describes itself at
+                <a href="{{ route('saml.metadata') }}">{{ route('saml.metadata') }}</a>,
+                which is what you give Okta.
+            </p>
         </div>
     @else
         <div class="status warn">
@@ -28,8 +50,8 @@
     <h2>Provisioning</h2>
     <p class="lede" style="margin-bottom:0">
         Just-in-time provisioning is
-        <strong>{{ config('services.okta.jit_provisioning') ? 'on' : 'off' }}</strong>.
-        @if (config('services.okta.jit_provisioning'))
+        <strong>{{ config('federation.jit_provisioning') ? 'on' : 'off' }}</strong>.
+        @if (config('federation.jit_provisioning'))
             Anyone Okta vouches for gets an account here on first sign-in.
         @else
             Okta can prove who you are, but an account has to exist here already.
