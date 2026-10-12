@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use GuzzleHttp\Exception\ClientException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,23 @@ class OktaController extends Controller
             // an error worth a page of its own; just start the flow again.
             return redirect()->route('login')
                 ->with('status', 'That sign-in attempt expired. Please try again.');
+        } catch (ClientException $e) {
+            // Okta rejected the code-for-token exchange. These are almost
+            // always configuration faults rather than anything the person at
+            // the keyboard did: a secret that has been rotated, a redirect URI
+            // that no longer matches, or a requirement the client does not
+            // implement, DPoP being the one that catches people out. Okta puts
+            // the reason in the response body, so log it verbatim and show the
+            // user something that is not a stack trace.
+            Log::error('Okta rejected the token exchange.', [
+                'status' => $e->getResponse()->getStatusCode(),
+                'body' => (string) $e->getResponse()->getBody(),
+            ]);
+
+            return redirect()->route('login')->with(
+                'status',
+                'Sign-in failed while exchanging the authorization code with Okta. This is a configuration problem rather than something you did; the reason is in the application log.'
+            );
         }
 
         // Match on the subject claim first, falling back to email. The email

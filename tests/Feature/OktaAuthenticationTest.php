@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Psr7\Request as GuzzleRequest;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
@@ -164,6 +168,37 @@ class OktaAuthenticationTest extends TestCase
         $this->get('/auth/okta/callback');
 
         $this->assertSame(['Everyone'], session('okta_claims.groups'));
+    }
+
+    public function test_a_rejected_token_exchange_does_not_surface_a_stack_trace(): void
+    {
+        // What Okta sends back when an app requires DPoP and the client does
+        // not implement it. The user did nothing wrong and should not be shown
+        // a Guzzle exception.
+        $rejection = new ClientException(
+            'Client error',
+            new GuzzleRequest('POST', 'https://example.okta.com/oauth2/v1/token'),
+            new GuzzleResponse(400, [], json_encode([
+                'error' => 'invalid_dpop_proof',
+                'error_description' => 'The DPoP proof JWT header is missing.',
+            ])),
+        );
+
+        Socialite::shouldReceive('driver')->with('okta')->andReturn(
+            Mockery::mock(Provider::class, function ($mock) use ($rejection) {
+                $mock->shouldReceive('user')->andThrow($rejection);
+            })
+        );
+
+        Log::shouldReceive('error')->once()->withArgs(function (string $message, array $context) {
+            return str_contains($message, 'rejected the token exchange')
+                && str_contains($context['body'], 'invalid_dpop_proof');
+        });
+
+        $this->get('/auth/okta/callback')->assertRedirect('/login');
+
+        $this->assertGuest();
+        $this->assertStringContainsString('configuration problem', session('status'));
     }
 
     public function test_signing_out_ends_the_local_session(): void
