@@ -21,7 +21,7 @@ Runs with `composer install` and `php artisan serve`. No build step.
 3. Copy the credentials into `.env`:
 
    ```
-   OKTA_BASE_URL=https://dev-00000000.okta.com
+   OKTA_BASE_URL=https://integrator-0000000.okta.com
    OKTA_CLIENT_ID=
    OKTA_CLIENT_SECRET=
    OKTA_AUTH_SERVER_ID=default

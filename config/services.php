@@ -43,10 +43,18 @@ return [
         // Your org URL, e.g. https://dev-12345678.okta.com
         'base_url' => env('OKTA_BASE_URL'),
 
-        // 'default' selects Okta's default custom authorization server rather
-        // than the org server. The custom one can be taught to emit a groups
-        // claim; the org server cannot, and group mapping needs it.
-        'auth_server_id' => env('OKTA_AUTH_SERVER_ID', 'default'),
+        // Empty selects the org authorization server at /oauth2/v1, which
+        // every org has. Setting it to 'default' selects the default custom
+        // authorization server at /oauth2/default/v1, which needs API Access
+        // Management. The org server is the safer default for a repo someone
+        // else clones, and groups do not depend on the choice: the OIDC app
+        // carries its own groups claim setting on its Sign On tab.
+        //
+        // Worth knowing while debugging either one: Okta answers for every
+        // *.okta.com host, so a wrong or non-existent org subdomain returns a
+        // branded 400 with no error body, identical to what a misconfigured
+        // authorization server returns. Check the hostname before the config.
+        'auth_server_id' => env('OKTA_AUTH_SERVER_ID', ''),
 
         // Authentication and provisioning are separate questions. Okta can
         // prove who someone is without that implying they should have an
