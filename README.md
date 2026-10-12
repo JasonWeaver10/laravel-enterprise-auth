@@ -89,6 +89,20 @@ Doing it silently in the name of tidiness logs people out of everything.
 one, and a placeholder hash in that column reads as a credential to whoever
 audits the table in two years.
 
+### The identity provider is not authoritative about everything it asserts
+
+It is authoritative about *who* someone is. That is the whole point. It is not
+automatically correct about the rest of the profile, and the rest of the profile
+is where most of the attributes live.
+
+A live sign-in against a fresh Okta org asserted
+`"zoneinfo": "America/Los_Angeles"` for a user in Ohio, because nothing had set
+it and that is the default. An application that rendered timestamps from
+`zoneinfo` would show every user the wrong time, and the bug would be hard to
+find, because the data is well formed and comes from an authoritative source.
+
+Treat claims as input. Validate the ones you depend on.
+
 ## Tests
 
 ```
@@ -102,7 +116,7 @@ created, who gets refused, and how a returning user is recognised.
 
 ## Roadmap
 
-- [x] OIDC authorization code sign-in
+- [x] OIDC authorization code sign-in, verified against a live Okta org
 - [ ] SAML 2.0, both SP-initiated and IdP-initiated
 - [ ] SCIM 2.0 provisioning endpoints, including deactivation
 - [ ] Okta group to application role mapping
